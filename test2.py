@@ -15,6 +15,8 @@ def printProgressBar(iteration, total, prefix='', suffix='', decimals=1, length=
     filledLength = int(length * iteration // total)
     bar = fill * filledLength + '-' * (length - filledLength)
     print('%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end='\r')
+    if iteration == total:
+        print()
 
 
 from time import sleep
@@ -22,7 +24,7 @@ from time import sleep
 if __name__ == '__main__':
 
     # make a list
-    items = list(range(100))
+    items = list(range(10))
     l = len(items)
 
     for i in items:

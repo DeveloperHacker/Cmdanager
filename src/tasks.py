@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from logger import Tracked
+from src.logger import Tracked
 
 
 class Task(Tracked, metaclass=ABCMeta):

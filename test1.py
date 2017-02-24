@@ -1,4 +1,6 @@
-from logger import logger
+import time
+
+from src.logger import logger
 
 
 @logger.trace
@@ -11,6 +13,7 @@ def foo1():
 @logger.trace
 def foo2(i: int):
     logger.print("message from begin foo2 with i = {}".format(i))
+    time.sleep(0.1)
     if i > 0:
         foo2(i - 1)
     logger.print("text text")

@@ -1,4 +1,4 @@
-from tasks import *
+from src.tasks import *
 
 
 class TaskNotFoundException(Exception):

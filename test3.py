@@ -1,15 +1,17 @@
 import os
+from sys import stdout
+from time import sleep
 
 
 def text(string: str, x, y):
-    str = "\033[{};{}H{}".format(y, x, string)
-    print(str)
+    stdout.write("\033[{};{}H{}".format(y, x, string))
+    stdout.flush()
 
-
-text("text", 3, 0)
-text("text", 6, 3)
-text("text", 7, 4)
 
 ts = os.get_terminal_size()
-print(ts.lines)
-print(ts.columns)
+height = ts.lines
+width = ts.columns
+
+for i in range(height, 0, -1):
+    text("text{}".format(i), 1, i)
+    sleep(0.1)

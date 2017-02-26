@@ -1,9 +1,9 @@
 from abc import ABCMeta, abstractmethod
 
-from src.logger import Tracked
+from src.utils import unique_integer_key
 
 
-class Task(Tracked, metaclass=ABCMeta):
+class Task(metaclass=ABCMeta):
     @property
     def name(self):
         return self._name
@@ -13,30 +13,43 @@ class Task(Tracked, metaclass=ABCMeta):
         return self._uid
 
     def __init__(self, uid: int, name: str = None):
+        super().__init__()
         self._name = name or "task{}".format(uid)
         self._uid = uid
-        self._done_listeners = []
-        self._progress_listeners = []
+        self._done_listeners = {}
+        self._progress_listeners = {}
+
+    def add_done_listener(self, listener) -> int:
+        uid = unique_integer_key(self._done_listeners)
+        self._done_listeners[uid] = listener
+        return len(self._done_listeners) - 1
+
+    def add_progress_listener(self, listener) -> int:
+        uid = unique_integer_key(self._progress_listeners)
+        self._progress_listeners[uid] = listener
+        return len(self._progress_listeners) - 1
+
+    def remove_done_listener(self, uid: int):
+        del self._done_listeners[uid]
+
+    def remove_progress_listener(self, uid: int):
+        del self._done_listeners[uid]
+
+    def _update(self):
+        for key, listener in self._progress_listeners.items():
+            listener()
+
+    def _done(self):
+        for key, listener in self._done_listeners.items():
+            listener()
 
     @abstractmethod
     def is_done(self):
         pass
 
-    def add_done_listener(self, listener) -> 'Task':
-        self._done_listeners.append(listener)
-        return self
-
-    def add_progress_listener(self, listener) -> 'Task':
-        self._progress_listeners.append(listener)
-        return self
-
-    def _update(self):
-        for listener in self._done_listeners:
-            listener(self)
-
-    def _done(self):
-        for listener in self._done_listeners:
-            listener(self)
+    @abstractmethod
+    def completeness(self) -> float:
+        pass
 
 
 class SimpleTask(Task):
@@ -52,6 +65,9 @@ class SimpleTask(Task):
             self._update()
             self._done()
             self._is_done = True
+
+    def completeness(self) -> float:
+        return int(self._is_done)
 
 
 class CounterTask(Task):
@@ -69,6 +85,12 @@ class CounterTask(Task):
             self._update()
             if self.is_done():
                 self._done()
+
+    def completeness(self) -> float:
+        return self._progress_counter / self._progress_length
+
+    def reset(self):
+        self._progress_counter = 0
 
 
 class MultiTask(Task):
@@ -94,3 +116,10 @@ class MultiTask(Task):
 
     def add(self, task: Task) -> 'MultiTask':
         return self.add_sub_task(task)
+
+    def completeness(self) -> float:
+        if len(self._sub_tasks) == 0: return 1.0
+        acc = 0.0
+        for task in self._sub_tasks:
+            acc += task.completeness()
+        return acc / len(self._sub_tasks)

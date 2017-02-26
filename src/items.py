@@ -8,7 +8,7 @@ class Item(metaclass=ABCMeta):
     def position(self):
         return self._position
 
-    def __init__(self, position: int = 0):
+    def __init__(self, position: int):
         self._position = position
 
     def shift(self, shift: int):
@@ -24,7 +24,7 @@ class Item(metaclass=ABCMeta):
 
 
 class ProgressBar(Item):
-    def __init__(self, task: Task, repaint: callable, position: int = 0):
+    def __init__(self, task: Task, position: int, repaint: callable):
         super().__init__(position)
         self._task = task
         self._listener_index = task.add_progress_listener(lambda: repaint(self))
@@ -34,15 +34,3 @@ class ProgressBar(Item):
 
     def to_line(self, max_line_length: int):
         return "Progress: {:-3.0f}%".format(self._task.completeness() * 100)
-
-
-class Line(Item):
-    def __init__(self, string: str, position: int = 0):
-        super().__init__(position)
-        self._instance = string
-
-    def to_line(self, max_line_length: int):
-        return self._instance
-
-    def disconnect(self):
-        pass

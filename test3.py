@@ -4,7 +4,7 @@ from time import sleep
 
 
 def text(string: str, x, y):
-    stdout.write("\033[{};{}H{}".format(y, x, string))
+    stdout.writeln("\033[{};{}H{}".format(y, x, string))
     stdout.flush()
 
 

@@ -22,18 +22,22 @@ class Task(metaclass=ABCMeta):
     def add_done_listener(self, listener) -> int:
         uid = unique_integer_key(self._done_listeners)
         self._done_listeners[uid] = listener
-        return len(self._done_listeners) - 1
+        return uid
 
     def add_progress_listener(self, listener) -> int:
         uid = unique_integer_key(self._progress_listeners)
         self._progress_listeners[uid] = listener
-        return len(self._progress_listeners) - 1
+        return uid
 
     def remove_done_listener(self, uid: int):
         del self._done_listeners[uid]
 
     def remove_progress_listener(self, uid: int):
-        del self._done_listeners[uid]
+        # with open("log.txt", "a") as file:
+        #     file.write(str(uid) + "\n")
+        #     file.write(str(list(self._done_listeners.keys())) + "\n")
+        #     file.flush()
+        del self._progress_listeners[uid]
 
     def _update(self):
         for key, listener in self._progress_listeners.items():

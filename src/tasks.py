@@ -33,10 +33,6 @@ class Task(metaclass=ABCMeta):
         del self._done_listeners[uid]
 
     def remove_progress_listener(self, uid: int):
-        # with open("log.txt", "a") as file:
-        #     file.write(str(uid) + "\n")
-        #     file.write(str(list(self._done_listeners.keys())) + "\n")
-        #     file.flush()
         del self._progress_listeners[uid]
 
     def _update(self):

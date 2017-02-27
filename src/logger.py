@@ -1,9 +1,11 @@
+import logging
 import os
-import time
 import sys
-from src.utils import expand
+import time
+
 from src.items import Item, ProgressBar
 from src.tasks import Task
+from src.utils import expand
 
 
 class Logger:
@@ -12,21 +14,21 @@ class Logger:
     def __new__(cls, *args, **kwargs):
         return Logger._instance or object.__new__(Logger)
 
-    def __init__(self):
+    def __init__(self, name=None):
         if Logger._instance is None:
             Logger._instance = self
+            self.logger = logging.getLogger(name)
+            self.logger.addHandler(Logger.Writer(sys.stdout))
             self._items = []
             self._cursor = 2
             term_size = os.get_terminal_size()
             self.default(term_size.columns, term_size.lines)
-            self.log_file = None
 
     # noinspection PyAttributeOutsideInit
     def default(self, width, height):
         self.max_lines = 1024
         self.width = width
         self.height = height
-        # print(width, height)
 
     def trace(self, foo):
         def wrapper(*args, **kwargs):
@@ -54,47 +56,13 @@ class Logger:
         line = self.format(item.to_line(self.width))
         self.writeln(line)
 
-    # def add_text(self, text: str):
-    #     lines = []
-    #     for line in text.split('\n'):
-    #         left = 0
-    #         while len(line) > self.width:
-    #             right = left + self.width
-    #             lines.append(line[left:right])
-    #             left = right
-    #         lines.append(line[left:])
-    #     self.add_items([Line(line) for line in lines])
-
-
-    # def add_items(self, items: list):
-    #     self._items.extend(items)
-    #     dlength = len(self._items) - self.max_lines
-    #     if dlength > 0:
-    #         for i in range(dlength + 1):
-    #             self._items[i].disconnect()
-    #         del self._items[:dlength]
-    #     for item in self._items:
-    #         item.shift(len(items))
-    #     self.repaint()
-
-    # def repaint(self):
-    #     visible_items = self._items[-min(self.height, len(self._items)):]
-    #     line_generator = (self.format(item.to_line(self.width)) for item in visible_items)
-    #     Logger.set_cursor_pos(1, 1)
-    #     self.write("\n".join(line_generator))
-    #     Logger.set_cursor_pos(self.width, self.height)
-
     def repaint_item(self, item: Item):
         if item.position > 0:
-            Logger.set_cursor_pos(1, item.position)
-            sys.stdout.write(self.format(item.to_line(self.width)))
-            sys.stdout.flush()
-            Logger.set_cursor_pos(1, self._cursor)
+            self.set_cursor_pos(1, item.position)
+            self.log(self.format(item.to_line(self.width)))
+            self.set_cursor_pos(1, self._cursor)
 
     def writeln(self, text: str):
-        if self.log_file is not None:
-            self.log_file.write(text + "\n")
-            self.log_file.flush()
         lines = []
         for line in text.split('\n'):
             left = 0
@@ -103,14 +71,13 @@ class Logger:
                 lines.append(line[left:right])
                 left = right
             lines.append(line[left:])
-        sys.stdout.write("\n".join(lines) + "\n")
-        sys.stdout.flush()
+        self.log("\n".join(lines) + "\n")
         self._cursor += len(lines)
         shift = max(self._cursor - self.height, 0)
         self._cursor = min(self.height, self._cursor)
         connected = []
         for i, item in enumerate(self._items):
-            item.shift(-shift)
+            # item.shift(-shift)
             if item.position <= 0:
                 item.disconnect()
             else:
@@ -118,14 +85,35 @@ class Logger:
                 connected.append(item)
         self._items = connected
 
-    @staticmethod
-    def set_cursor_pos(x: int, y: int):
-        sys.stdout.write("\033[{};{}H".format(y, x))
-        sys.stdout.flush()
+    def set_cursor_pos(self, x: int, y: int):
+        self.log("\033[{};{}H".format(y, x))
 
     def format(self, string: str):
         length = len(string)
         return string[:self.width] if length > self.width else string + " " * (self.width - length)
+
+    def log(self, string: str):
+        self.logger.log(logging.CRITICAL, string)
+
+    class Writer(logging.Handler):
+        def __init__(self, stream):
+            logging.Handler.__init__(self)
+            self.stream = stream
+
+        def flush(self):
+            self.acquire()
+            try:
+                self.stream.flush()
+            finally:
+                self.release()
+
+        # noinspection PyBroadException
+        def emit(self, record):
+            try:
+                self.stream.write(self.format(record))
+                self.flush()
+            except Exception:
+                self.handleError(record)
 
 
 logger = Logger()

@@ -2,33 +2,27 @@ import logging
 import os
 import sys
 import time
+from multiprocessing import Value
 
 from src.items import Item, ProgressBar
 from src.tasks import Task
-from src.utils import expand
+from src.utils import expand, unique_integer_key
+
+
+class _Commands:
+    info = "info"
+    print = "print"
+    show = "show"
+    repaint_item = "repaint"
 
 
 class Logger:
-    _instance = None
-
-    def __new__(cls, *args, **kwargs):
-        return Logger._instance or object.__new__(Logger)
-
     def __init__(self, name=None):
-        if Logger._instance is None:
-            Logger._instance = self
-            self.logger = logging.getLogger(name)
-            self.logger.addHandler(Logger.Writer(sys.stdout))
-            self._items = []
-            self._cursor = 2
-            term_size = os.get_terminal_size()
-            self.default(term_size.columns, term_size.lines)
+        self._writer = Writer(name)
+        self.add_stream(sys.stdout)
 
-    # noinspection PyAttributeOutsideInit
-    def default(self, width, height):
-        self.max_lines = 1024
-        self.width = width
-        self.height = height
+    def add_stream(self, stream):
+        self._writer.add_stream(stream)
 
     def trace(self, foo):
         def wrapper(*args, **kwargs):
@@ -45,75 +39,118 @@ class Logger:
         return wrapper
 
     def info(self, obj):
-        self.writeln("INFO: " + str(obj))
+        self._writer.register_command(_Commands.info, obj)
 
     def print(self, obj):
-        self.writeln(">>    " + str(obj))
+        self._writer.register_command(_Commands.print, obj)
 
-    def progress_bar(self, task: Task):
-        item = ProgressBar(task, self._cursor, self.repaint_item)
-        self._items.append(item)
-        line = self.format(item.to_line(self.width))
-        self.writeln(line)
+    def progress(self, task: Task, length: int, description: str = ""):
+        return self._writer.progress(task, length, description)
 
-    def repaint_item(self, item: Item):
+    def show(self, item: Item):
+        self._writer.register_command(_Commands.show, item)
+
+
+class Writer(logging.Handler):
+    def __init__(self, name=None):
+        logging.Handler.__init__(self)
+        self._logger = logging.getLogger(name)
+        self._logger.addHandler(self)
+        self._commands = {}
+        self._streams = []
+        self._items = []
+        self._cursor = Value("i", 2)
+
+    def add_stream(self, stream):
+        self._streams.append(stream)
+
+    def register_command(self, command: str, *args):
+        uid = unique_integer_key(self._commands)
+        self._commands[uid] = (command, tuple(args))
+        self._logger.log(logging.CRITICAL, uid)
+
+    # noinspection PyBroadException
+    def emit(self, record):
+        try:
+            uid = int(self.format(record))
+            command, args = self._commands[uid]
+            if command == _Commands.info:
+                self._info(*args)
+            elif command == _Commands.print:
+                self._print(*args)
+            elif command == _Commands.show:
+                self._show(*args)
+            elif command == _Commands.repaint_item:
+                self._repaint_item(*args)
+        except Exception:
+            self.handleError(record)
+
+    # Todo: normal
+    @property
+    def cursor_position(self):
+        return self._cursor.value
+
+    # Todo: remove this operation
+    def _shift_cursor_position(self, shift: int):
+        self._cursor.value = min(self.cursor_position + shift, self.height)
+
+    @property
+    def width(self):
+        term_size = os.get_terminal_size()
+        return term_size.columns
+
+    @property
+    def height(self):
+        term_size = os.get_terminal_size()
+        return term_size.lines
+
+    def _info(self, obj):
+        self._writeln("INFO: " + str(obj))
+
+    def _print(self, obj):
+        self._writeln(">>    " + str(obj))
+
+    def _show(self, item: Item):
+        item.set_position(self.cursor_position)
+        self._write("\n")
+
+    def progress(self, task: Task, length: int, description: str):
+        progress_bar = ProgressBar(length, description, task, -1, self._repaint_item)
+        self._items.append(progress_bar)
+        return progress_bar
+
+    def _repaint_item(self, item: Item):
+        self.acquire()
         if item.position > 0:
-            self.set_cursor_pos(1, item.position)
-            self.log(self.format(item.to_line(self.width)))
-            self.set_cursor_pos(1, self._cursor)
+            go_to_item_pos = "\033[{};1H".format(item.position)
+            go_to_cursor_pos = "\033[{};1H".format(self.cursor_position)
+            line = "PROG: " + self._format(item.to_line(self.width))
+            self._log(go_to_item_pos + line + go_to_cursor_pos)
+        self.release()
 
-    def writeln(self, text: str):
-        lines = []
-        for line in text.split('\n'):
-            left = 0
-            while len(line) > self.width:
-                right = left + self.width
-                lines.append(line[left:right])
-                left = right
-            lines.append(line[left:])
-        self.log("\n".join(lines) + "\n")
-        self._cursor += len(lines)
-        shift = max(self._cursor - self.height, 0)
-        self._cursor = min(self.height, self._cursor)
-        connected = []
+    def _writeln(self, text: str):
+        self._write(text + "\n")
+
+    def _write(self, text: str):
+        self.acquire()
+        lines = [line for line in text.split('\n')]
+        self._log("\n".join(lines))
+        shift = max(self.cursor_position + len(lines) - 1 - self.height, 0)
+        self._shift_cursor_position(len(lines) - 1)
         for i, item in enumerate(self._items):
-            # item.shift(-shift)
-            if item.position <= 0:
-                item.disconnect()
-            else:
-                self.repaint_item(item)
-                connected.append(item)
-        self._items = connected
+            item.set_position(item.position - shift)
+            self._repaint_item(item)
+        self.release()
 
-    def set_cursor_pos(self, x: int, y: int):
-        self.log("\033[{};{}H".format(y, x))
-
-    def format(self, string: str):
+    def _format(self, string: str):
         length = len(string)
         return string[:self.width] if length > self.width else string + " " * (self.width - length)
 
-    def log(self, string: str):
-        self.logger.log(logging.CRITICAL, string)
-
-    class Writer(logging.Handler):
-        def __init__(self, stream):
-            logging.Handler.__init__(self)
-            self.stream = stream
-
-        def flush(self):
-            self.acquire()
-            try:
-                self.stream.flush()
-            finally:
-                self.release()
-
-        # noinspection PyBroadException
-        def emit(self, record):
-            try:
-                self.stream.write(self.format(record))
-                self.flush()
-            except Exception:
-                self.handleError(record)
+    def _log(self, string: str):
+        for stream in self._streams:
+            stream.write(string)
+            if stream and hasattr(stream, "flush"):
+                stream.flush()
 
 
 logger = Logger()

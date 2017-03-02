@@ -1,25 +1,26 @@
-import os
-
-import sys
-
 import time
+from multiprocessing import Process, Manager, Value
 
-from src.logger import logger
 
-term_size = os.get_terminal_size()
-width = term_size.columns
-height = term_size.lines
+def foo(data, name=''):
+    print(type(data), data.value, name)
+    data.value += 1
 
-logger.set_cursor_pos(1, 1)
-for i in range(height):
-    sys.stdout.write("{:03d}>>  \n".format(i))
-sys.stdout.flush()
-for i in range(5):
-    sys.stdout.write("{:03d}>  \n".format(i))
-sys.stdout.flush()
-for i in range(height + 5):
-    if i % 3 == 0:
-        logger.set_cursor_pos(1, i + 1)
-        sys.stdout.write("{:03d}>>> ".format(i))
-        time.sleep(1)
-sys.stdout.flush()
+
+if __name__ == "__main__":
+    manager = Manager()
+    x = manager.Value('i', 0)
+    y = Value('i', 0)
+
+    for i in range(5):
+        Process(target=foo, args=(x, 'x')).start()
+        Process(target=foo, args=(y, 'y')).start()
+
+    print('Before waiting: ')
+    print('x = {0}'.format(x.value))
+    print('y = {0}'.format(y.value))
+
+    time.sleep(5.0)
+    print('After waiting: ')
+    print('x = {0}'.format(x.value))
+    print('y = {0}'.format(y.value))

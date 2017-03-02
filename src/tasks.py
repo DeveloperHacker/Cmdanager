@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from multiprocessing import Value
 
 from src.utils import unique_integer_key
 
@@ -8,40 +9,37 @@ class Task(metaclass=ABCMeta):
     def name(self):
         return self._name
 
-    @property
-    def uid(self):
-        return self._uid
-
-    def __init__(self, uid: int, name: str = None):
+    def __init__(self, name: str):
         super().__init__()
-        self._name = name or "task{}".format(uid)
-        self._uid = uid
-        self._done_listeners = {}
-        self._progress_listeners = {}
+        self._name = name or "task"
+        self._update_listeners = {}
 
-    def add_done_listener(self, listener) -> int:
-        uid = unique_integer_key(self._done_listeners)
-        self._done_listeners[uid] = listener
+    def add(self, listener) -> int:
+        uid = unique_integer_key(self._update_listeners)
+        self._update_listeners[uid] = listener
         return uid
 
-    def add_progress_listener(self, listener) -> int:
-        uid = unique_integer_key(self._progress_listeners)
-        self._progress_listeners[uid] = listener
-        return uid
+    def remove(self, uid: int):
+        del self._update_listeners[uid]
 
-    def remove_done_listener(self, uid: int):
-        del self._done_listeners[uid]
+    def update(self):
+        if not self.is_done():
+            self._update()
+            for key, listener in self._update_listeners.items():
+                listener()
 
-    def remove_progress_listener(self, uid: int):
-        del self._progress_listeners[uid]
+    def reset(self):
+        self._reset()
+        for key, listener in self._update_listeners.items():
+            listener()
 
+    @abstractmethod
     def _update(self):
-        for key, listener in self._progress_listeners.items():
-            listener()
+        pass
 
-    def _done(self):
-        for key, listener in self._done_listeners.items():
-            listener()
+    @abstractmethod
+    def _reset(self):
+        pass
 
     @abstractmethod
     def is_done(self):
@@ -53,69 +51,61 @@ class Task(metaclass=ABCMeta):
 
 
 class SimpleTask(Task):
-    def __init__(self, uid: int, name: str = None):
-        super(SimpleTask, self).__init__(uid, name)
-        self._is_done = False
+    def __init__(self, name: str):
+        super(SimpleTask, self).__init__(name)
+        self._is_done = Value("i", False)
 
     def is_done(self):
-        return self._is_done
+        return self._is_done.value
 
-    def done(self):
-        if not self.is_done():
-            self._update()
-            self._done()
-            self._is_done = True
+    def _update(self):
+        self._is_done.value = True
+
+    def _reset(self):
+        self._is_done.value = False
 
     def completeness(self) -> float:
-        return int(self._is_done)
+        return float(self._is_done.value)
 
 
 class CounterTask(Task):
-    def __init__(self, progress_length: int, uid: int, name: str = None):
-        super(CounterTask, self).__init__(uid, name)
-        self._progress_counter = 0
-        self._progress_length = progress_length
+    def __init__(self, progress_length: int, name: str):
+        super(CounterTask, self).__init__(name)
+        self._progress = Value("i", 0)
+        self._length = progress_length
 
     def is_done(self):
-        return self._progress_counter == self._progress_length
+        return self._progress.value >= self._length
 
-    def update(self):
-        if not self.is_done():
-            self._progress_counter += 1
-            self._update()
-            if self.is_done():
-                self._done()
+    def _update(self):
+        with self._progress.get_lock():
+            self._progress.value += 1
+
+    def _reset(self):
+        with self._progress.get_lock():
+            self._progress.value = 0
 
     def completeness(self) -> float:
-        return self._progress_counter / self._progress_length
-
-    def reset(self):
-        self._progress_counter = 0
+        return self._progress.value / self._length
 
 
 class MultiTask(Task):
-    def __init__(self, uid: int, name: str = None):
-        super(MultiTask, self).__init__(uid, name)
+    def __init__(self, name: str, *tasks):
+        super(MultiTask, self).__init__(name)
         self._sub_tasks = []
-
-    def _sub_progress_listener(self, _: Task):
-        self._update()
-
-    def _sub_done_listener(self, _: Task):
-        if self.is_done():
-            self._done()
+        for task in tasks:
+            task.add(self.update)
+            self._sub_tasks.append(task)
 
     def is_done(self):
         return all((task.is_done() for task in self._sub_tasks))
 
-    def add_sub_task(self, task: Task) -> 'MultiTask':
-        self._sub_tasks.append(task)
-        task.add_progress_listener(self._sub_progress_listener)
-        task.add_done_listener(self._sub_done_listener)
-        return self
+    def _update(self):
+        pass
 
-    def add(self, task: Task) -> 'MultiTask':
-        return self.add_sub_task(task)
+    def _reset(self):
+        for task in self._sub_tasks:
+            task.reset()
 
     def completeness(self) -> float:
         if len(self._sub_tasks) == 0: return 1.0

@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from multiprocessing import Value
 
 from src.tasks import Task
 
@@ -6,17 +7,14 @@ from src.tasks import Task
 class Item(metaclass=ABCMeta):
     @property
     def position(self):
-        return self._position
+        return self._position.value
+
+    def set_position(self, position: int):
+        with self._position.get_lock():
+            self._position.value = position
 
     def __init__(self, position: int):
-        self._position = position
-
-    def shift(self, shift: int):
-        self._position += shift
-
-    @abstractmethod
-    def disconnect(self):
-        pass
+        self._position = Value("i", position)
 
     @abstractmethod
     def to_line(self, max_line_length: int):
@@ -24,13 +22,40 @@ class Item(metaclass=ABCMeta):
 
 
 class ProgressBar(Item):
-    def __init__(self, task: Task, position: int, repaint: callable):
+    @property
+    def completeness(self):
+        return self._task.completeness()
+
+    @property
+    def length(self):
+        return self._length
+
+    @property
+    def description(self):
+        return self._description
+
+    def __init__(self, length: int, description: str, task: Task, position: int, repaint: callable):
         super().__init__(position)
         self._task = task
-        self._listener_index = task.add_progress_listener(lambda: repaint(self))
-
-    def disconnect(self):
-        self._task.remove_progress_listener(self._listener_index)
+        self._length = length
+        self._description = description
+        self._listener_index = task.add(lambda: repaint(self))
 
     def to_line(self, max_line_length: int):
-        return "Progress: {:-3.0f}%".format(self._task.completeness() * 100)
+        fill = int(self._length * self.completeness)
+        empty = self._length - fill
+        # percent = "{:03d}%".format(int(self.completeness * 100))
+        # length = len(percent)
+        # diff = int(abs(empty - fill))
+        # if empty > fill:
+        #     progress = "[{}{}{}{}]".format("█" * (fill - length), " " * diff, percent, " " * (empty - diff))
+        # else:
+        #     progress = "[{}{}{}{}]".format("█" * (fill - diff - length), percent, "█" * diff, " " * empty)
+        progress = "[{}{}]".format("█" * fill, " " * empty)
+        return self._description + " " + progress
+
+    def update(self):
+        self._task.update()
+
+    def reset(self):
+        self._task.reset()

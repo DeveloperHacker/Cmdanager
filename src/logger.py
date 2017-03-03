@@ -44,7 +44,7 @@ class Logger:
     def print(self, obj):
         self._writer.register_command(_Commands.print, obj)
 
-    def progress(self, task: Task, length: int, description: str = ""):
+    def progress(self, task: Task, length: int, description: str = "PROG:"):
         return self._writer.progress(task, length, description)
 
     def show(self, item: Item):
@@ -124,7 +124,7 @@ class Writer(logging.Handler):
         if item.position > 0:
             go_to_item_pos = "\033[{};1H".format(item.position)
             go_to_cursor_pos = "\033[{};1H".format(self.cursor_position)
-            line = "PROG: " + self._format(item.to_line(self.width))
+            line = self._format(item.to_line(self.width))
             self._log(go_to_item_pos + line + go_to_cursor_pos)
         self.release()
 
@@ -133,7 +133,13 @@ class Writer(logging.Handler):
 
     def _write(self, text: str):
         self.acquire()
-        lines = [line for line in text.split('\n')]
+        width = self.width
+        lines = []
+        for line in text.split('\n'):
+            while len(line) > width:
+                lines.append(line[:width])
+                line = line[width:]
+            lines.append(line)
         self._log("\n".join(lines))
         shift = max(self.cursor_position + len(lines) - 1 - self.height, 0)
         self._shift_cursor_position(len(lines) - 1)
@@ -144,7 +150,8 @@ class Writer(logging.Handler):
 
     def _format(self, string: str):
         length = len(string)
-        return string[:self.width] if length > self.width else string + " " * (self.width - length)
+        width = self.width
+        return string[:width] if length > width else string + " " * (width - length)
 
     def _log(self, string: str):
         for stream in self._streams:

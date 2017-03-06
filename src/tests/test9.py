@@ -1,5 +1,5 @@
 
-from src.logger import logger
+from cmdmanager.logger import logger
 
 
 data = range(2 ** 20)

@@ -1,7 +1,8 @@
 import time
 
-from src.logger import logger
 from src.tasks import CounterTask
+
+from cmdmanager.logger import logger
 
 
 @logger.trace

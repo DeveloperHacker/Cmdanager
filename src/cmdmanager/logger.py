@@ -4,9 +4,10 @@ import sys
 import time
 from multiprocessing import Value
 
-from src.items import Item, ProgressBar, Timer
-from src.tasks import Task, CounterTask
-from src.utils import expand, unique_integer_key
+from tasks import Task, CounterTask
+from utils import expand, unique_integer_key
+
+from cmdmanager.items import Item, ProgressBar, Timer
 
 
 class _Commands:

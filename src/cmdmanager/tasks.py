@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from multiprocessing import Value
 
-from src.traceable import Traceable
+from cmdmanager.traceable import Traceable
 
 
 class Task(Traceable):

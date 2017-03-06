@@ -1,6 +1,6 @@
 import time
 
-from src.logger import logger
+from cmdmanager.logger import logger
 
 
 @logger.trace

@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
 
-from src.utils import unique_integer_key
+from cmdmanager.utils import unique_integer_key
 
 
 class Traceable(metaclass=ABCMeta):

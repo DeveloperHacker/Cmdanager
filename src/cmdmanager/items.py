@@ -2,9 +2,10 @@ import time
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Value
 
-from src.tasks import Task
-from src.traceable import Traceable
-from src.utils import expand
+from tasks import Task
+from traceable import Traceable
+
+from cmdmanager.utils import expand
 
 
 class Item(metaclass=ABCMeta):

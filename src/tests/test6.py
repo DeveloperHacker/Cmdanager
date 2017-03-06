@@ -1,8 +1,9 @@
 import time
 from multiprocessing import Pool
 
-from src.logger import logger
 from src.tasks import CounterTask, MultiTask
+
+from cmdmanager.logger import logger
 
 
 def multiplier(datum1, datum2):

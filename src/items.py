@@ -2,23 +2,38 @@ from abc import ABCMeta, abstractmethod
 from multiprocessing import Value
 
 from src.tasks import Task
+from src.traceable import Traceable
 
 
 class Item(metaclass=ABCMeta):
     @property
-    def position(self):
-        return self._position.value
-
-    @property
     def width(self):
         return self._width
 
-    def set_position(self, position: int):
-        with self._position.get_lock():
-            self._position.value = position
+    @property
+    def x(self):
+        return self._x.value
 
-    def __init__(self, position: int, width: int):
-        self._position = Value("i", position)
+    @property
+    def y(self):
+        return self._y.value
+
+    def set_x(self, x: int):
+        with self._x.get_lock():
+            self._x.value = x
+
+    def set_y(self, y: int):
+        with self._y.get_lock():
+            self._y.value = y
+
+    def set_position(self, x: int, y: int):
+        with self._x.get_lock(), self._y.get_lock():
+            self._x.value = x
+            self._y.value = y
+
+    def __init__(self, x: int, y: int, width: int):
+        self._x = Value("i", x)
+        self._y = Value("i", y)
         self._width = width
 
     @abstractmethod
@@ -39,12 +54,12 @@ class ProgressBar(Item):
     def description(self):
         return self._description
 
-    def __init__(self, length: int, description: str, task: Task, position: int, repaint: callable):
-        super().__init__(position)
-        self._task = task
+    def __init__(self, x: int, y: int, length: int, description: str, traceable: Traceable, repaint: callable):
+        super().__init__(x, y, length)
+        self._task = traceable
         self._length = length
         self._description = description
-        self._listener_index = task.add(lambda: repaint(self))
+        self._listener_index = traceable.add(lambda: repaint(self))
 
     def to_line(self, max_line_length: int):
         percent = "{:-3d}%".format(int(self.completeness * 100))

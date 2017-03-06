@@ -1,10 +1,10 @@
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
 from multiprocessing import Value
 
-from src.utils import unique_integer_key
+from src.traceable import Traceable
 
 
-class Task(metaclass=ABCMeta):
+class Task(Traceable):
     @property
     def name(self):
         return self._name
@@ -12,34 +12,6 @@ class Task(metaclass=ABCMeta):
     def __init__(self, name: str):
         super().__init__()
         self._name = name or "task"
-        self._update_listeners = {}
-
-    def add(self, listener) -> int:
-        uid = unique_integer_key(self._update_listeners)
-        self._update_listeners[uid] = listener
-        return uid
-
-    def remove(self, uid: int):
-        del self._update_listeners[uid]
-
-    def update(self):
-        if not self.is_done():
-            self._update()
-            for key, listener in self._update_listeners.items():
-                listener()
-
-    def reset(self):
-        self._reset()
-        for key, listener in self._update_listeners.items():
-            listener()
-
-    @abstractmethod
-    def _update(self):
-        pass
-
-    @abstractmethod
-    def _reset(self):
-        pass
 
     @abstractmethod
     def is_done(self):
@@ -48,6 +20,9 @@ class Task(metaclass=ABCMeta):
     @abstractmethod
     def completeness(self) -> float:
         pass
+
+    def value(self):
+        return self.completeness()
 
 
 class SimpleTask(Task):

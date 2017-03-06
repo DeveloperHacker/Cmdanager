@@ -111,18 +111,18 @@ class Writer(logging.Handler):
         self._writeln(">>    " + str(obj))
 
     def _show(self, item: Item):
-        item.set_position(self.cursor_position)
+        item.set_x(self.cursor_position)
         self._write("\n")
 
     def progress(self, task: Task, length: int, description: str):
-        progress_bar = ProgressBar(length, description, task, -1, self._repaint_item)
+        progress_bar = ProgressBar(1, -1, length, description, task, self._repaint_item)
         self._items.append(progress_bar)
         return progress_bar
 
     def _repaint_item(self, item: Item):
         self.acquire()
-        if item.position > 0:
-            go_to_item_pos = "\033[{};1H".format(item.position)
+        if item.y > 0:
+            go_to_item_pos = "\033[{};1H".format(item.x)
             go_to_cursor_pos = "\033[{};1H".format(self.cursor_position)
             line = self._format(item.to_line(self.width))
             self._log(go_to_item_pos + line + go_to_cursor_pos)
@@ -144,7 +144,7 @@ class Writer(logging.Handler):
         shift = max(self.cursor_position + len(lines) - 1 - self.height, 0)
         self._shift_cursor_position(len(lines) - 1)
         for i, item in enumerate(self._items):
-            item.set_position(item.position - shift)
+            item.set_x(item.x - shift)
             self._repaint_item(item)
         self.release()
 

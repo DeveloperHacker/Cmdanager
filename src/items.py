@@ -1,7 +1,10 @@
+import time
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Value
 
+from src.tasks import Task
 from src.traceable import Traceable
+from src.utils import expand
 
 
 class Item(metaclass=ABCMeta):
@@ -49,7 +52,6 @@ class ProgressBar(Item):
     def length(self):
         return self._length
 
-
     def __init__(self, x: int, y: int, length: int, traceable: Traceable, repaint: callable):
         super().__init__(x, y, length)
         self._task = traceable
@@ -72,3 +74,23 @@ class ProgressBar(Item):
 
     def reset(self):
         self._task.reset()
+
+
+class Timer(Item):
+    def __init__(self, task: Task, x: int, y: int, repaint: callable):
+        super().__init__(x, y, 17)
+        task.add(lambda: repaint(self))
+        self.start()
+
+    # noinspection PyAttributeOutsideInit
+    def start(self):
+        self._stop = False
+        self._start = Value("d", time.time())
+
+    # noinspection PyAttributeOutsideInit
+    def stop(self):
+        self._delay = time.time() - self._start.value
+        self._stop = True
+
+    def to_line(self, max_line_length: int):
+        return expand(self._delay if self._stop else time.time() - self._start.value)

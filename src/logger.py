@@ -4,8 +4,8 @@ import sys
 import time
 from multiprocessing import Value
 
-from src.items import Item, ProgressBar
-from src.tasks import Task
+from src.items import Item, ProgressBar, Timer
+from src.tasks import Task, CounterTask
 from src.utils import expand, unique_integer_key
 
 
@@ -31,9 +31,8 @@ class Logger:
             clock = time.time()
             result = foo(*args, **kwargs)
             delay = time.time() - clock
-            h, m, s, ms = expand(delay)
             self.info("Function \"{}\" is ended".format(name))
-            self.info("Work time {:02d}h {:02d}m {:02d}s {:03d}ms".format(h, m, s, ms))
+            self.info("Work time {}".format(expand(delay)))
             return result
 
         return wrapper
@@ -47,6 +46,17 @@ class Logger:
     def progress(self, task: Task, length: int):
         return self._writer.progress(task, length)
 
+    def progress_iterator(self, arr: list, length: int):
+        task = CounterTask(len(arr), "progress")
+        progress = self._writer.progress(task, length)
+        self.show(progress)
+        for elem in arr:
+            yield elem
+            task.update()
+
+    def timer(self, task: Task):
+        return self._writer.timer(task)
+
     def show(self, *items):
         self._writer.register_command(_Commands.show, *items)
 
@@ -59,7 +69,8 @@ class Writer(logging.Handler):
         self._commands = {}
         self._streams = []
         self._items = []
-        self._x_cursor_position = Value("i", 2)
+        self._y_cursor_position = Value("i", 2)
+        self._x_cursor_position = Value("i", 1)
 
     def add_stream(self, stream):
         self._streams.append(stream)
@@ -87,12 +98,21 @@ class Writer(logging.Handler):
 
     # Todo: normal
     @property
+    def y_cursor_position(self):
+        return self._y_cursor_position.value
+
+    # Todo: normal
+    @property
     def x_cursor_position(self):
         return self._x_cursor_position.value
 
     # Todo: remove this operation
-    def _shift_cursor_position(self, shift: int):
-        self._x_cursor_position.value = min(self.x_cursor_position + shift, self.height)
+    def _set_y_cursor_position(self, y: int):
+        self._y_cursor_position.value = y
+
+    # Todo: remove this operation
+    def _set_x_cursor_position(self, x: int):
+        self._x_cursor_position.value = x
 
     @property
     def width(self):
@@ -111,15 +131,16 @@ class Writer(logging.Handler):
         self._writeln(">>    " + str(obj))
 
     def _show(self, *items):
-        for item in items:
+        for item in list(items):
             if isinstance(item, str):
                 self._write(item)
             elif isinstance(item, Item):
-                item.set_position(1, self.x_cursor_position)
+                item.set_position(self.x_cursor_position, self.y_cursor_position)
+                # fixme                                                           v
+                self._set_x_cursor_position(self.x_cursor_position + item.width + 2)
                 self._repaint_item(item)
             else:
                 raise Exception("Item or string expected")
-            item.set_y(self.x_cursor_position)
         self._write("\n")
 
     def progress(self, task: Task, length: int):
@@ -127,12 +148,18 @@ class Writer(logging.Handler):
         self._items.append(progress_bar)
         return progress_bar
 
+    def timer(self, task: Task):
+        timer = Timer(task, 1, -1, self._repaint_item)
+        self._items.append(timer)
+        return timer
+
     def _repaint_item(self, item: Item):
         self.acquire()
         if item.y > 0:
-            go_to_item_pos = "\033[{};1H".format(item.y)
-            go_to_cursor_pos = "\033[{};1H".format(self.x_cursor_position)
-            line = self._format(item.to_line(self.width))
+            go_to_item_pos = "\033[{};{}H".format(item.y, item.x)
+            go_to_cursor_pos = "\033[{};{}H".format(self.y_cursor_position, self.x_cursor_position)
+            line = self._truncate(item.to_line(self.width))
+            self._log(go_to_item_pos + " " * item.width)
             self._log(go_to_item_pos + line + go_to_cursor_pos)
         self.release()
 
@@ -148,18 +175,21 @@ class Writer(logging.Handler):
                 lines.append(line[:width])
                 line = line[width:]
             lines.append(line)
+        prev = self.x_cursor_position
+        self._set_x_cursor_position(len(lines[-1]))
+        if len(lines) == 1:
+            self._set_x_cursor_position(prev + self.x_cursor_position)
         self._log("\n".join(lines))
-        shift = max(self.x_cursor_position + len(lines) - 1 - self.height, 0)
-        self._shift_cursor_position(len(lines) - 1)
+        shift = self.y_cursor_position + len(lines) - 1
+        self._set_y_cursor_position(min(shift, self.height))
+        shift = max(shift - self.height, 0)
         for i, item in enumerate(self._items):
             item.set_y(item.y - shift)
             self._repaint_item(item)
         self.release()
 
-    def _format(self, string: str):
-        length = len(string)
-        width = self.width
-        return string[:width] if length > width else string + " " * (width - length)
+    def _truncate(self, string: str):
+        return string[:min(len(string), self.width)]
 
     def _log(self, string: str):
         for stream in self._streams:

@@ -13,4 +13,11 @@ def expand(clock: float):
     s = clock // 1000 % 60
     m = clock // 1000 // 60 % 60
     h = clock // 1000 // 60 // 60
-    return h, m, s, ms
+    if h != 0:
+        return "{:02d}h {:02d}m {:02d}s {:03d}ms".format(h, m, s, ms)
+    elif m != 0:
+        return "{:02d}m {:02d}s {:03d}ms".format(m, s, ms)
+    elif s != 0:
+        return "{:02d}s {:03d}ms".format(s, ms)
+    else:
+        return "{:03d}ms".format(ms)

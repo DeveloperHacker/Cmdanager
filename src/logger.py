@@ -44,11 +44,11 @@ class Logger:
     def print(self, obj):
         self._writer.register_command(_Commands.print, obj)
 
-    def progress(self, task: Task, length: int, description: str = "PROG:"):
-        return self._writer.progress(task, length, description)
+    def progress(self, task: Task, length: int):
+        return self._writer.progress(task, length)
 
-    def show(self, item: Item):
-        self._writer.register_command(_Commands.show, item)
+    def show(self, *items):
+        self._writer.register_command(_Commands.show, *items)
 
 
 class Writer(logging.Handler):
@@ -59,7 +59,7 @@ class Writer(logging.Handler):
         self._commands = {}
         self._streams = []
         self._items = []
-        self._cursor = Value("i", 2)
+        self._x_cursor_position = Value("i", 2)
 
     def add_stream(self, stream):
         self._streams.append(stream)
@@ -87,12 +87,12 @@ class Writer(logging.Handler):
 
     # Todo: normal
     @property
-    def cursor_position(self):
-        return self._cursor.value
+    def x_cursor_position(self):
+        return self._x_cursor_position.value
 
     # Todo: remove this operation
     def _shift_cursor_position(self, shift: int):
-        self._cursor.value = min(self.cursor_position + shift, self.height)
+        self._x_cursor_position.value = min(self.x_cursor_position + shift, self.height)
 
     @property
     def width(self):
@@ -110,20 +110,28 @@ class Writer(logging.Handler):
     def _print(self, obj):
         self._writeln(">>    " + str(obj))
 
-    def _show(self, item: Item):
-        item.set_x(self.cursor_position)
+    def _show(self, *items):
+        for item in items:
+            if isinstance(item, str):
+                self._write(item)
+            elif isinstance(item, Item):
+                item.set_position(1, self.x_cursor_position)
+                self._repaint_item(item)
+            else:
+                raise Exception("Item or string expected")
+            item.set_y(self.x_cursor_position)
         self._write("\n")
 
-    def progress(self, task: Task, length: int, description: str):
-        progress_bar = ProgressBar(1, -1, length, description, task, self._repaint_item)
+    def progress(self, task: Task, length: int):
+        progress_bar = ProgressBar(1, -1, length, task, self._repaint_item)
         self._items.append(progress_bar)
         return progress_bar
 
     def _repaint_item(self, item: Item):
         self.acquire()
         if item.y > 0:
-            go_to_item_pos = "\033[{};1H".format(item.x)
-            go_to_cursor_pos = "\033[{};1H".format(self.cursor_position)
+            go_to_item_pos = "\033[{};1H".format(item.y)
+            go_to_cursor_pos = "\033[{};1H".format(self.x_cursor_position)
             line = self._format(item.to_line(self.width))
             self._log(go_to_item_pos + line + go_to_cursor_pos)
         self.release()
@@ -141,10 +149,10 @@ class Writer(logging.Handler):
                 line = line[width:]
             lines.append(line)
         self._log("\n".join(lines))
-        shift = max(self.cursor_position + len(lines) - 1 - self.height, 0)
+        shift = max(self.x_cursor_position + len(lines) - 1 - self.height, 0)
         self._shift_cursor_position(len(lines) - 1)
         for i, item in enumerate(self._items):
-            item.set_x(item.x - shift)
+            item.set_y(item.y - shift)
             self._repaint_item(item)
         self.release()
 

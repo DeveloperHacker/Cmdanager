@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from multiprocessing import Value
 
-from src.tasks import Task
 from src.traceable import Traceable
 
 
@@ -44,21 +43,17 @@ class Item(metaclass=ABCMeta):
 class ProgressBar(Item):
     @property
     def completeness(self):
-        return self._task.completeness()
+        return self._task.value()
 
     @property
     def length(self):
         return self._length
 
-    @property
-    def description(self):
-        return self._description
 
-    def __init__(self, x: int, y: int, length: int, description: str, traceable: Traceable, repaint: callable):
+    def __init__(self, x: int, y: int, length: int, traceable: Traceable, repaint: callable):
         super().__init__(x, y, length)
         self._task = traceable
         self._length = length
-        self._description = description
         self._listener_index = traceable.add(lambda: repaint(self))
 
     def to_line(self, max_line_length: int):
@@ -70,7 +65,7 @@ class ProgressBar(Item):
         left = min(segment, fill)
         right = min(segment, empty)
         progress = ["█" * left, " " * (segment - left), percent, "█" * (segment - right), " " * right]
-        return "{} |{}|".format(self.description, "".join(progress))
+        return "|{}|".format("".join(progress))
 
     def update(self):
         self._task.update()

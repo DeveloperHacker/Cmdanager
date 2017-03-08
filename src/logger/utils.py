@@ -9,10 +9,9 @@ def unique_integer_key(dictionary: dict) -> int:
 
 def expand(clock: float):
     clock = int(clock * 1000)
-    ms = clock % 1000
-    s = clock // 1000 % 60
-    m = clock // 1000 // 60 % 60
-    h = clock // 1000 // 60 // 60
+    s, ms = divmod(clock, 1000)
+    m, s = divmod(s, 60)
+    h, m = divmod(m, 60)
     if h != 0:
         return "{:02d}h {:02d}m {:02d}s {:03d}ms".format(h, m, s, ms)
     elif m != 0:

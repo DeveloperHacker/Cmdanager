@@ -1,19 +1,15 @@
 from abc import abstractmethod, ABCMeta
 
-from cmdmanager.utils import unique_integer_key
+from src.logger.utils import unique_integer_key
 
 
 class Traceable(metaclass=ABCMeta):
-    @abstractmethod
-    def value(self):
-        pass
-
     def __init__(self):
         self._update_listeners = {}
 
-    def add(self, listener) -> int:
+    def add(self, listener, *args, **kwargs) -> int:
         uid = unique_integer_key(self._update_listeners)
-        self._update_listeners[uid] = listener
+        self._update_listeners[uid] = (listener, args, kwargs)
         return uid
 
     def remove(self, uid: int):
@@ -21,13 +17,12 @@ class Traceable(metaclass=ABCMeta):
 
     def update(self):
         self._update()
-        for key, listener in self._update_listeners.items():
-            listener()
+        for key, (listener, args, kwargs) in self._update_listeners.items():
+            listener(*args, **kwargs)
 
     def reset(self):
         self._reset()
-        for key, listener in self._update_listeners.items():
-            listener()
+        self.update()
 
     @abstractmethod
     def _update(self):

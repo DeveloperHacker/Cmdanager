@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from src.logger.tasks.Traceable import Traceable
+from src.tasks.Traceable import Traceable
 
 
 class Task(Traceable):

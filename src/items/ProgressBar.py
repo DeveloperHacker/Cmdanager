@@ -1,5 +1,6 @@
-from src.logger.items.Item import Item
-from src.logger.tasks.Task import Task
+from src.tasks.Task import Task
+
+from src.items.Item import Item
 
 
 class ProgressBar(Item):

@@ -1,9 +1,8 @@
 import os
-
 import sys
 
-from src.logger.Point import Point
-from src.logger.items.Item import Item
+from src.items.Item import Item
+from src.utils import Point
 
 
 class Writer:

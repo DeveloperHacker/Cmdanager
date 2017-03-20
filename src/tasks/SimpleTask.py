@@ -1,4 +1,4 @@
-from src.logger.tasks.Task import Task
+from src.tasks.Task import Task
 
 
 class SimpleTask(Task):

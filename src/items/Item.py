@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-from src.logger.Point import Point
+from src.utils import Point
 
 
 class Item(Point, metaclass=ABCMeta):

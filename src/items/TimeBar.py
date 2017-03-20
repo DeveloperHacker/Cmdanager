@@ -1,7 +1,7 @@
 import time
 
-from src.logger import utils
-from src.logger.items.Item import Item
+from src import utils
+from src.items.Item import Item
 
 
 class TimeBar(Item):

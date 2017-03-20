@@ -1,8 +1,7 @@
+import time
 from multiprocessing.pool import Pool
 
-import time
-
-from src.logger.ProxyLogger import ProxyLogger
+from src.logger.proxy.ProxyLogger import ProxyLogger
 
 
 def mapper(value: int):

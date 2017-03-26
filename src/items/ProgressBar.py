@@ -13,16 +13,20 @@ class ProgressBar(Item):
         self._task = task
         self._width = width
 
+        # def line(self, width: int):
+        # percent = "{:-3d}%".format(int(self.completeness * 100))
+        # fill = int(self._width * self.completeness)
+        # empty = self._width - fill
+        # length = len(percent)
+        # segment = (self._width - length) // 2
+        # left = min(segment, fill)
+        # right = min(segment, empty)
+        # progress = ["█" * left, " " * (segment - left), percent, "█" * (segment - right), " " * right]
+        # return "|{}|".format("".join(progress))
+
     def line(self, width: int):
-        percent = "{:-3d}%".format(int(self.completeness * 100))
         fill = int(self._width * self.completeness)
-        empty = self._width - fill
-        length = len(percent)
-        segment = (self._width - length) // 2
-        left = min(segment, fill)
-        right = min(segment, empty)
-        progress = ["█" * left, " " * (segment - left), percent, "█" * (segment - right), " " * right]
-        return "|{}|".format("".join(progress))
+        return "█" * fill + " " * (self._width - fill)
 
     def update(self):
         self._task.update()

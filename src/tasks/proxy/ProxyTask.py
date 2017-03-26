@@ -5,7 +5,7 @@ from src.tasks.proxy.ProxyTraceable import ProxyTraceable
 
 class ProxyTask(ProxyTraceable, metaclass=ABCMeta):
     def is_done(self) -> bool:
-        return self._request("is_done").get()
+        raise AttributeError("attribute 'is_done' is not supported")
 
     def completeness(self) -> float:
-        return self._request("completeness").get()
+        raise AttributeError("attribute 'completeness' is not supported")

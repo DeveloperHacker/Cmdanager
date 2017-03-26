@@ -1,6 +1,7 @@
+from src.logger.HandledTypes import HandledTypes
 from src.tasks.proxy.ProxyTask import ProxyTask
 
 
 class ProxyMultiTask(ProxyTask):
-    def __init__(self, proxy_uid: int, logger, *tasks):
-        super().__init__(proxy_uid, "MultiTask", logger, proxy_uid, *tasks)
+    def __init__(self, uid: int, logger: 'Logger', *tasks):
+        super().__init__(logger, uid, HandledTypes.MultiTask, uid, *tasks)

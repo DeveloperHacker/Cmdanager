@@ -1,33 +1,10 @@
 import os
-import sys
 
 from src.items.Item import Item
 from src.utils import Point
 
 
 class Writer:
-    def __init__(self, stdout: bool):
-        self._stdout = stdout
-        self._files = []
-        self._items = []
-        self._cursor = Point(1, 2)
-
-    def open(self, file_name, *args):
-        self._files.append(open(file_name, *args))
-
-    def close(self):
-        for file in self._files:
-            file.close()
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
-    def add_item(self, item: Item):
-        self._items.append(item)
-
     @property
     def width(self):
         term_size = os.get_terminal_size()
@@ -38,9 +15,29 @@ class Writer:
         term_size = os.get_terminal_size()
         return term_size.lines
 
-    def show(self, *items):
+    def __init__(self, stdout):
+        self._files = []
+        self._items = {}
+        self._cursor = Point(1, 2)
+        self._stdout = stdout
+
+    def open(self, file_name, mode='r', encoding=None):
+        self._files.append(open(file_name, mode=mode, encoding=encoding))
+
+    def flush(self):
+        for file in self._files:
+            file.flush()
+        self._stdout.flush()
+
+    def close(self):
+        for file in self._files:
+            file.close()
+
+    def print(self, *items):
         for item in items:
             if isinstance(item, Item):
+                if item.uid not in self._items:
+                    self._items[item.uid] = item
                 item.move(self._cursor.x, self._cursor.y)
                 line = self._truncate(item.line(self.width - self._cursor.x))
                 self.write(line + " " * (item.width - len(line)))
@@ -49,7 +46,7 @@ class Writer:
         self.writeln()
 
     def repaint(self):
-        for item in self._items:
+        for item in self._items.values():
             if item.y > 0:
                 go_to_item_pos = "\033[{};{}H".format(item.y, item.x)
                 go_to_cursor_pos = "\033[{};{}H".format(self._cursor.y, self._cursor.x)
@@ -60,6 +57,7 @@ class Writer:
         self.write(string + "\n")
 
     def write(self, string: str):
+        string = string
         self._to_files(string)
         width = self.width
         lines = []
@@ -76,7 +74,7 @@ class Writer:
         shift = self._cursor.y + len(lines) - 1
         self._cursor.set_y(min(shift, self.height))
         shift = max(shift - self.height, 0)
-        for i, item in enumerate(self._items):
+        for item in self._items.values():
             item.set_y(item.y - shift)
         self.repaint()
 
@@ -84,11 +82,10 @@ class Writer:
         return string[:min(len(string), self.width - self._cursor.x)]
 
     def _to_stdout(self, string: str):
-        if self._stdout:
-            sys.stdout.write(string)
-            sys.stdout.flush()
+        self._stdout.write(string)
+        self._stdout.flush()
 
     def _to_files(self, string: str):
         for file in self._files:
             file.write(string)
-            file.flush()
+        self.flush()

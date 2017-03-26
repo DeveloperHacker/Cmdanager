@@ -1,3 +1,4 @@
+from src.logger.HandledTypes import HandledTypes
 from src.tasks.proxy.ProxyTask import ProxyTask
 
 
@@ -6,6 +7,6 @@ class ProxyCounterTask(ProxyTask):
     def length(self):
         return self._length
 
-    def __init__(self, proxy_uid: int, logger, length: int):
-        super().__init__(proxy_uid, "CounterTask", logger, proxy_uid, length)
+    def __init__(self, uid: int, logger: 'Logger', length: int):
+        super().__init__(logger, uid, HandledTypes.CounterTask, uid, length)
         self._length = length

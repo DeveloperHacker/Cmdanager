@@ -4,5 +4,9 @@ from src.logger.proxy.Proxy import Proxy
 
 
 class ProxyItem(Proxy, metaclass=ABCMeta):
-    def __init__(self, proxy_uid: int, type_name: str, logger, *args, **kwargs):
-        super().__init__(proxy_uid, type_name, logger, *args, **kwargs)
+    @property
+    def width(self):
+        raise AttributeError("attribute 'width' is not supported")
+
+    def line(self, width: int):
+        raise AttributeError("attribute 'line' is not supported")

@@ -6,4 +6,4 @@ export PYTHONPATH="${PYTHONPATH}:${SRC}"
 
 clear
 echo "============================== test10.py =============================="
-python3 "${TEST}/test10.py"
+python3 "${TEST}/test1.py"
